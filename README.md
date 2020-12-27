@@ -17,23 +17,72 @@ Attack Range can be built in three different ways:
 
 ### [Azure and MacOS](https://github.com/splunk/attack_range/wiki/Azure:-MacOS-Installation)
 
+### Installation Notes For AWS
+- attack-range/init.sh installs all the requirements, initializes terraform and downloads a fresh clone of the most recent attack-range repo if we need to start from scratch. Explore the commands in init.sh to see the initial setup and installation processes. 
+- Attack range CLI changes quite a bit as new features are added to the repo so we need to be careful about that before adding GUI elements that make CLI calls
+
+### AWS Set up 
+- We have to manually set up a programmatic AWS user and ssh authentication. Refer to this article for step by step pictures. 
+(https://github.com/splunk/attack_range/wiki/AWS:-Ubuntu-18.04-Installation). The following notes include tricky things not in the article. 
+## Create an RSA key
+- On the terminal
+ > ssh-keygen 
+This command asks for a "keyName" and a "passphrase". "passphrase" sould be empty. This command generates two files **keyName.pub and keyName**. These files the public and private keys respectively necessary for authentication. Save these files in an appropriate location. We need both these files for this set up. Its important that we don't push these files, particularly the key to any repo.  
+
+## Import the keyName.pub we just created to AWS. 
+- Open the EC2 dashboard.  On the menu on the left: Network and Security >> Key Pairs 
+- In the Key Pairs Menu under "Action" Import New Key and select the **.pub** file just created. Also give it an appropriate name and make note of this name we will need it later. The **keyname** that you give here is needed to configure attack range.
+View this article to see this in more detail.   
+
+## Create a programmatic user. 
+
+- The details for creating a programmatic user are also in the article mentioned above. The jist of it is that we have to create a new user in the IAM section of AWS. The set up process is pretty stright forward. 
+On the final step of the adding the user we will see a screen with the credentials for the user. The credentials are named **ACCESS-KEY-ID and SECURE-KEY-ID** 
+We need to note this, or copy them somewhere for easy access later.
+
+
+## Linking our Attack-Range project with the created user. 
+On the terminal 
+> aws configure
+This command will ask for the ACCESS-KEY-ID, SECURE-KEY-ID. Use the credentials saved earlier. 
+
+## Attack Range Configuration File
+
+**attackrange\attack_range.conf** is the most important file in the project for our purposes. This is how we configure the full range of vms that are spun by attack range. 
+
+Have the following things in hand before changing the configuration file. 
+1. file path of the private key **filepath/keyName** when we created the RSA key
+2. The **keyName** of the key we created in AWS
+
+# Find the section titled \[Global\] and change 
+
+attack_range_password = yourpassword  #this is the password that will be assigned to all instances that are spun up by attack range, if not specified elsewhere. 
+
+# Find the section titled \[range_settings\] in the configuration file and make the following changes
+
+key_name = **keyName** #this is the name of our key in AWS
+private_key_path = **filepath/keyName** #this is the filepath to the private key we saved on the system.
+
+
+This completes the minimal setup needed to spin up a splunk server and a windows domain controller to simulate attacks on the domain controller.
+Need to explore the options a little more to see the full potential of this software. 
+
+## build the configured infrastructure.
+> python attack-range.py build 
+
 
 ## Architecture 🏯
 ![Logical Diagram](docs/attack_range_architecture.png)
 
-The virtualized deployment of Attack Range consists of:
+The virtualized deployment of Attack Range can be configured to:
 
 - Windows Domain Controller
 - Windows Server
 - Windows Workstation
 - A Kali Machine
-- Splunk Server
+- Splunk Server (Data Aggregator)
 - Phantom Server
-- Zeek Sensor
-
-#Installation Steps On Ubuntu/Linux machines
-
-- Python3 
+- Zeek Sensor (Packet Sniffer)
 
 #### Logging
 The following log sources are collected from the machines:
